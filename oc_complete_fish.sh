@@ -38,6 +38,6 @@ for i in ${commands[@]}; do
 done
 
 # copy outputfile to fish completion folder
-cp outputfile_name /home/kmpi/.config/fish/completions/oc.fish
+cp outputfile_name ~/.config/fish/completions/oc.fish
 rm outputfile_name
 
