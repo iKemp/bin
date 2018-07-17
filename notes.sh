@@ -33,7 +33,7 @@ function list {
 
 function search {
     #grep -rni "$notes_dir" -e "$*" --color=always # more verbose variant
-    grep -rnil "$notes_dir" -e "$*" | xargs -L 1 basename  # -l required if using basename
+    grep -rnil "$notes_dir" -e "$*" | xargs --no-run-if-empty -L 1 basename  # -l required if using basename
     # -l to only show filename then output the file basename instead of whole path
     # -w for whole words in case too many results show up over time
 }
