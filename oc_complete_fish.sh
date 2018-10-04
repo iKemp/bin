@@ -30,8 +30,11 @@ _oc
 
 outputfile_name=outputfile.tmp
 
+# write headline
+echo "# generated via $PWD/`basename "$0"`" >> outputfile_name
+
 for i in ${commands[@]}; do
-    completion="complete -f -c oc -a $i"
+    completion="complete -c oc -a $i"
     echo $completion >> outputfile_name
 
     # TODO complete for all subcommands
