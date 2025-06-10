@@ -1,0 +1,55 @@
+Token 0:
+	URL: pkcs11:model=p11-kit-trust;manufacturer=PKCS%2311%20Kit;serial=1;token=System%20Trust
+	Label: System Trust
+	Type: Trust module
+	Flags: uPIN uninitialized
+	Manufacturer: PKCS#11 Kit
+	Model: p11-kit-trust
+	Serial: 1
+	Module: p11-kit-trust.so
+
+
+Token 1:
+	URL: pkcs11:model=p11-kit-trust;manufacturer=PKCS%2311%20Kit;serial=1;token=Default%20Trust
+	Label: Default Trust
+	Type: Trust module
+	Flags: uPIN uninitialized
+	Manufacturer: PKCS#11 Kit
+	Model: p11-kit-trust
+	Serial: 1
+	Module: p11-kit-trust.so
+
+
+Token 2:
+	URL: pkcs11:model=PKCS%2315;manufacturer=www.atos.net%2Fcardos;serial=8BE35A3A313FF23C;token=CardOS%20PKCS%2315%20Default%20Profile
+	Label: CardOS PKCS#15 Default Profile
+	Type: Hardware token
+	Flags: Requires login
+	Manufacturer: www.atos.net/cardos
+	Model: PKCS#15
+	Serial: 8BE35A3A313FF23C
+	Module: opensc-pkcs11.so
+
+
+Token 3:
+	URL: pkcs11:model=PKCS%2315;manufacturer=www.atos.net%2Fcardos;serial=8BE35A3A313FF23C;token=Extra%20PIN%20%231%20%28CardOS%20PKCS%2315%20Def
+	Label: Extra PIN #1 (CardOS PKCS#15 Def
+	Type: Hardware token
+	Flags: Requires login
+	Manufacturer: www.atos.net/cardos
+	Model: PKCS#15
+	Serial: 8BE35A3A313FF23C
+	Module: opensc-pkcs11.so
+
+
+Token 4:
+	URL: pkcs11:model=PKCS%2315;manufacturer=www.atos.net%2Fcardos;serial=8BE35A3A313FF23C;token=Extra%20PIN%20%230%20%28CardOS%20PKCS%2315%20Def
+	Label: Extra PIN #0 (CardOS PKCS#15 Def
+	Type: Hardware token
+	Flags: Requires login
+	Manufacturer: www.atos.net/cardos
+	Model: PKCS#15
+	Serial: 8BE35A3A313FF23C
+	Module: opensc-pkcs11.so
+
+
