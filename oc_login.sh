@@ -3,20 +3,24 @@
 # Script to log in to OpenShift based on environment
 # Usage: ./oc_login.sh
 
-# Preconditions
-# Check if oc command exists
-if ! command -v oc &> /dev/null
-then
-    echo "Error: 'oc' command not found. Please ensure OpenShift CLI is installed and in your PATH."
-    exit 1
-fi
-# Check if gum command exists https://github.com/charmbracelet/gum
-if ! command -v gum &> /dev/null
-then
-    echo "Error: 'gum' command not found. Please ensure gum is installed and in your PATH."
-    exit 1
-fi
+# --- Helper Function for Dependency Checks ---
+check_dependencies() {
+    local -a commands_to_check=("$@") # Capture all arguments as an array
+    local missing_commands=""
 
+    for cmd in "${commands_to_check[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            missing_commands+="$cmd " # Append missing command to the list
+        fi
+    done
+
+    if [ -n "$missing_commands" ]; then
+        echo "Error: The following required commands are not found in your PATH:"
+        echo "       $missing_commands"
+        echo "Please ensure they are installed and accessible."
+        exit 1
+    fi
+}
 
 # --- Helper Function to Get Current Login Info ---
 get_current_cluster_info() {
@@ -43,6 +47,7 @@ get_current_cluster_info() {
 }
 
 # --- Main Script Logic ---
+check_dependencies "oc" "gum"
 
 echo "--- OpenShift Cluster Login ---"
 

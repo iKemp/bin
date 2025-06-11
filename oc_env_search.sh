@@ -3,23 +3,27 @@
 # Script to lookup openshift env vars that fit search term
 # Usage: `oc_env_search.sh` or `oc_env_search.sh searchTerm`
 
-# Preconditions
-if ! command -v oc &> /dev/null
-then
-    echo "Error: 'oc' command not found. Please ensure OpenShift CLI is installed and in your PATH."
-    exit 1
-fi
-if ! command -v gum &> /dev/null
-then
-    echo "Error: 'gum' command not found. Please ensure gum is installed and in your PATH."
-    exit 1
-fi
-if ! command -v yq &> /dev/null
-then
-    echo "Error: 'yq' command not found. Please ensure gum is installed and in your PATH."
-    exit 1
-fi
+# --- Helper Function for Dependency Checks ---
+check_dependencies() {
+    local -a commands_to_check=("$@") # Capture all arguments as an array
+    local missing_commands=""
 
+    for cmd in "${commands_to_check[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            missing_commands+="$cmd " # Append missing command to the list
+        fi
+    done
+
+    if [ -n "$missing_commands" ]; then
+        echo "Error: The following required commands are not found in your PATH:"
+        echo "       $missing_commands"
+        echo "Please ensure they are installed and accessible."
+        exit 1
+    fi
+}
+
+# --- Main Script Logic ---
+check_dependencies "oc" "gum" "yq"
 
 SEARCH_TERM=$(gum input --placeholder "Enter your search term" --value "$1")
 if [ -z "$SEARCH_TERM" ]; then
