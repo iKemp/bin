@@ -95,7 +95,7 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
             while IFS= read -r SELECTED_CM; do
                 echo "Processing config map: $SELECTED_CM"
                 RESOURCE_YAML=$(oc get $SELECTED_CM -n $SELECTED_PROJECT -o yaml 2>/dev/null)
-                MATCHING_CM=$(echo "$RESOURCE_YAML" | grep -i "$SEARCH_TERM")
+                MATCHING_CM=$(echo "$RESOURCE_YAML" | yq '.data' | grep -i "$SEARCH_TERM") # restrict to data block; ommit last_applied annotation
                 TRUNCATED_MATCHING_CM=$(echo "$MATCHING_CM" | cut -c 1-"$CM_CONTENT_WIDTH" ) # Limit to terminal width
                 if [ -n "$MATCHING_CM" ]; then
                     gum style --padding "1 5" --border double --border-foreground 212 "$TRUNCATED_MATCHING_CM"
