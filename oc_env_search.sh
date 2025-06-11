@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Script to lookup openshift env vars that fit search term
+# Usage: `oc_env_search.sh` or `oc_env_search.sh searchTerm`
 
 # Preconditions
 if ! command -v oc &> /dev/null
@@ -20,16 +21,24 @@ then
 fi
 
 
-SEARCH_TERM=$(gum input --placeholder "Enter your search term")
+SEARCH_TERM=$(gum input --placeholder "Enter your search term" --value "$1")
 if [ -z "$SEARCH_TERM" ]; then
     echo "Enter a search term"
     exit 0
 fi
 
+# Apply optional filter pattern
+FILTER_PATTERN=$(gum input --placeholder "Enter project name filter (e.g., 'dev-', 'team-a'):")
+if [ -n "$FILTER_PATTERN" ]; then
+    # Use -i for case-insensitive matching in grep
+    SELECTED_PROJECTS=$(oc projects -q | grep -i "$FILTER_PATTERN" | gum choose --height 20 --no-limit --header "Choose projects matching '$FILTER_PATTERN'")
+else
+    # If no filter entered, show all (or exit, depending on desired behavior)
+    SELECTED_PROJECTS=$(oc projects -q | gum choose --height 20 --no-limit --header "Choose all projects")
+fi
+
 # allow multi selection
-SELECTED_PROJECTS=$(oc projects -q | gum choose --height 40 --no-limit --header "Choose projects")
-#echo "You selected the following projects:"
-#echo "$SELECTED_PROJECTS" # This will print each on a new line
+#SELECTED_PROJECTS=$(oc projects -q | gum choose --height 20 --no-limit --header "Choose projects")
 
 # Iterate over each selected project
 if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
@@ -38,7 +47,7 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
         if [ -n "$SELECTED_PROJECT" ]; then # Ensure line is not empty (can happen if there are trailing newlines)
             echo "Processing project: $SELECTED_PROJECT"
 
-            # find all deployments and deployment configs
+            # find all deployments and deploymentConfigs
             DEPLOYMENTS=$(oc get deployments -o name -n $SELECTED_PROJECT; oc get deploymentconfigs -o name -n $SELECTED_PROJECT 2>/dev/null)
             while IFS= read -r SELECTED_DEPLOYMENT; do
                 echo "Processing deployment: $SELECTED_DEPLOYMENT"
@@ -74,8 +83,24 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
                         gum style --padding "1 5" --border double --border-foreground 212 "$MATCHING_ENV_VARS"
                     fi
                 fi
-                
-            done  <<< "$DEPLOYMENTS"
+            done <<< "$DEPLOYMENTS"
+
+            # lookup configMaps
+            # Get terminal width once (it's unlikely to change during the loop)
+            TERMINAL_WIDTH=$(tput cols)
+            # Calculate content width for gum style
+            CM_CONTENT_WIDTH=$((TERMINAL_WIDTH - 12))
+
+            CONFIG_MAPS=$(oc get cm -o name -n $SELECTED_PROJECT 2>/dev/null)        
+            while IFS= read -r SELECTED_CM; do
+                echo "Processing config map: $SELECTED_CM"
+                RESOURCE_YAML=$(oc get $SELECTED_CM -n $SELECTED_PROJECT -o yaml 2>/dev/null)
+                MATCHING_CM=$(echo "$RESOURCE_YAML" | grep -i "$SEARCH_TERM")
+                TRUNCATED_MATCHING_CM=$(echo "$MATCHING_CM" | cut -c 1-"$CM_CONTENT_WIDTH" ) # Limit to terminal width
+                if [ -n "$MATCHING_CM" ]; then
+                    gum style --padding "1 5" --border double --border-foreground 212 "$TRUNCATED_MATCHING_CM"
+                fi
+            done <<< "$CONFIG_MAPS"
             
         fi
     done <<< "$SELECTED_PROJECTS"
