@@ -11,20 +11,13 @@ get_commit_hash() {
   local KUBE_CONTEXT=$1
   local IMAGE_STREAM_TAG=$2
 
-  # Using a temporary variable to capture output before grep, to avoid pipefail issues
-  # if 'describe istag' fails or finds no output.
   local DESCRIBE_OUTPUT
   if ! DESCRIBE_OUTPUT=$(oc --context="${KUBE_CONTEXT}" describe istag "${IMAGE_STREAM_TAG}" 2>/dev/null); then
-    # If oc describe fails (e.g., istag not found), return empty string.
-    # This prevents pipefail from exiting the script if grep receives no input.
     echo ""
     return 0
   fi
 
-  # Now, grep and awk on the captured output.
   echo "$DESCRIBE_OUTPUT" | grep -i 'Image:' | awk '{print $NF}' | rev | cut -d: -f1 | rev || true
-  # Added '|| true' to the end of the pipeline. This ensures that if grep doesn't find
-  # 'Image:', the pipeline still succeeds (returns 0), preventing 'set -e' from exiting.
 }
 
 # --- Main Script ---
@@ -37,21 +30,48 @@ gum style \
 echo ""
 
 # Get all available contexts
-ALL_CONTEXTS=$(oc config get-contexts -o name || true) # Added || true to prevent 'set -e' if no contexts found
+ALL_CONTEXTS=$(oc config get-contexts -o name || true)
 if [ -z "$ALL_CONTEXTS" ]; then
     gum style --foreground "204" "No OpenShift contexts found in your kubeconfig. Please ensure you are logged in to some clusters."
     exit 1
 fi
 
+### Select Contexts
+
+# Apply optional filter pattern for contexts
+CONTEXT_FILTER_PATTERN=$(gum input --placeholder "Enter context name filter (e.g., 'dev-', 'prod', 'myteam'):" --value "$1")
+
 gum style --foreground "#04B575" "Select Source Cluster Context:"
-SOURCE_CONTEXT=$(echo "$ALL_CONTEXTS" | gum choose --limit=1)
+# Filter contexts if a pattern was provided
+if [ -n "$CONTEXT_FILTER_PATTERN" ]; then
+    FILTERED_CONTEXTS=$(echo "$ALL_CONTEXTS" | grep -i "$CONTEXT_FILTER_PATTERN" || true)
+    if [ -z "$FILTERED_CONTEXTS" ]; then
+        gum style --foreground "204" "No contexts found matching '$CONTEXT_FILTER_PATTERN'. Exiting."
+        exit 1
+    fi
+    SOURCE_CONTEXT=$(echo "$FILTERED_CONTEXTS" | gum choose --limit=1 --height 10 --header "Choose source context matching '$CONTEXT_FILTER_PATTERN'")
+else
+    SOURCE_CONTEXT=$(echo "$ALL_CONTEXTS" | gum choose --limit=1 --height 10 --header "Choose source context")
+fi
+
 if [ -z "$SOURCE_CONTEXT" ]; then
     gum style --foreground "204" "Source context selection cancelled. Exiting."
     exit 1
 fi
 
 gum style --foreground "#04B575" "Select Target Cluster Context:"
-TARGET_CONTEXT=$(echo "$ALL_CONTEXTS" | grep -v "$SOURCE_CONTEXT" | gum choose --limit=1) # Exclude the already selected source context
+# Filter contexts for target, excluding the already selected source
+if [ -n "$CONTEXT_FILTER_PATTERN" ]; then
+    FILTERED_CONTEXTS_TARGET=$(echo "$ALL_CONTEXTS" | grep -i "$CONTEXT_FILTER_PATTERN" | grep -v "$SOURCE_CONTEXT" || true)
+    if [ -z "$FILTERED_CONTEXTS_TARGET" ]; then
+        gum style --foreground "204" "No *other* contexts found matching '$CONTEXT_FILTER_PATTERN'. Exiting."
+        exit 1
+    fi
+    TARGET_CONTEXT=$(echo "$FILTERED_CONTEXTS_TARGET" | gum choose --limit=1 --height 10 --header "Choose target context matching '$CONTEXT_FILTER_PATTERN'")
+else
+    TARGET_CONTEXT=$(echo "$ALL_CONTEXTS" | grep -v "$SOURCE_CONTEXT" | gum choose --limit=1 --height 10 --header "Choose target context")
+fi
+
 if [ -z "$TARGET_CONTEXT" ]; then
     gum style --foreground "204" "Target context selection cancelled. Exiting."
     exit 1
@@ -60,32 +80,32 @@ fi
 gum style --foreground "204" "Selected Source: ${SOURCE_CONTEXT}"
 gum style --foreground "204" "Selected Target: ${TARGET_CONTEXT}"
 
+### Discover ImageStreams
+
 # Determine the project for the source context to get ImageStreams from
-SOURCE_PROJECT=$(oc --context="${SOURCE_CONTEXT}" project -q 2>/dev/null || true) # Allow project command to fail gracefully
+SOURCE_PROJECT=$(oc --context="${SOURCE_CONTEXT}" project -q 2>/dev/null || true)
 if [ -z "$SOURCE_PROJECT" ]; then
     gum style --foreground "204" "Could not determine the current project for context '${SOURCE_CONTEXT}'. Please ensure a project is set for this context."
     exit 1
 fi
 gum style --foreground "240" "ImageStreams will be fetched from the current project of the source context: ${SOURCE_PROJECT}"
 
-# Discover all ImageStreams in the source context's current project
 gum style --foreground "#04B575" "Discovering ImageStreams in context '${SOURCE_CONTEXT}' (project: '${SOURCE_PROJECT}')..."
 IMAGE_STREAMS=$(oc --context="${SOURCE_CONTEXT}" get is -o custom-columns=":metadata.name" --no-headers 2>/dev/null | grep -v 'openshift' || true)
-# Added || true to grep to prevent pipefail if no "openshift" lines are found
 
 if [ -z "$IMAGE_STREAMS" ]; then
     gum style --foreground "204" "No user-defined ImageStreams found in project '${SOURCE_PROJECT}' for context '${SOURCE_CONTEXT}'. Exiting."
     exit 1
 fi
 
+### Start Comparison
+
 # Image tags to compare
 IMAGE_TAGS=("latest" "stage" "prod")
 
-# Calculate number of ImageStreams outside gum style for robustness
 num_imagestreams=$(echo "$IMAGE_STREAMS" | wc -l | tr -d '[:space:]')
-#gum style --foreground "#04B575" \
-#	--width 70 --margin "1 0" --padding "0 1" \
-#	"--- Starting comparison for ${num_imagestreams} ImageStreams ---"
+#gum style --foreground "04B575" --margin "1 0" --padding "0 1" "--- Starting comparison for 21 ImageStreams ---"
+gum style --foreground "04B575" --margin "1 0" --padding "0 1" "  --- Starting comparison for ${num_imagestreams} ImageStreams ---  "
 
 echo "$IMAGE_STREAMS" | while IFS= read -r IS_NAME; do
     gum style --foreground "04B575" --margin "1 0" --padding "0 1" "Comparing ImageStream: ${IS_NAME}"
