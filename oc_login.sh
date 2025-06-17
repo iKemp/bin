@@ -3,24 +3,8 @@
 # Script to log in to OpenShift based on environment
 # Usage: ./oc_login.sh
 
-# --- Helper Function for Dependency Checks ---
-check_dependencies() {
-    local -a commands_to_check=("$@") # Capture all arguments as an array
-    local missing_commands=""
-
-    for cmd in "${commands_to_check[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
-            missing_commands+="$cmd " # Append missing command to the list
-        fi
-    done
-
-    if [ -n "$missing_commands" ]; then
-        echo "Error: The following required commands are not found in your PATH:"
-        echo "       $missing_commands"
-        echo "Please ensure they are installed and accessible."
-        exit 1
-    fi
-}
+# Source the utility functions
+source "$(dirname "$0")/../lib/bash/utils.sh"
 
 # --- Helper Function to Get Current Login Info ---
 get_current_cluster_info() {
@@ -46,6 +30,21 @@ get_current_cluster_info() {
     fi
 }
 
+# --- Define Menu Entry Variables ---
+readonly MENU_DEV_01="Dev 01 Cluster (deprecated)"
+readonly MENU_DEV_02="Dev 02 Cluster"
+readonly MENU_PROD_01="Prod 01 Cluster (deprecated)"
+readonly MENU_PROD_02="Prod 02 Cluster"
+
+# --- Main Menu Function ---
+main_menu() {
+    gum choose --header="Pick a cluster to login..." \
+        "$MENU_DEV_02" \
+        "$MENU_PROD_02" \
+        "$MENU_DEV_01" \
+        "$MENU_PROD_01"
+}
+
 # --- Main Script Logic ---
 check_dependencies "oc" "gum"
 
@@ -68,23 +67,22 @@ else
 fi
 
 
-echo "Pick a cluster to login..."
-CLUSTER_ENV=$(gum choose "dev-02" "prod-02" "dev-01" "prod-01")
+CLUSTER_ENV=$(main_menu)
 echo $CLUSTER_ENV
 
 case "$CLUSTER_ENV" in
-    dev-01)
+    "$MENU_DEV_01")
         OCP_SERVER="https://api.oscp4-dev-01.viessmann.net:6443 --insecure-skip-tls-verify=true" 
         ;;
-    prod-01)
+    "$MENU_PROD_01")
         OCP_SERVER="https://api.oscp4-prod-01.viessmann.net:6443 --insecure-skip-tls-verify=true" 
         # For production, always use proper TLS verification.
         # --certificate-authority=<path/to/prod_ca.crt> if you have a custom CA
         ;;
-    dev-02)
+    "$MENU_DEV_02")
         OCP_SERVER="https://api.oscp4-dev-02.viessmann.net:6443 --insecure-skip-tls-verify=true" 
         ;;
-    prod-02)
+    "$MENU_PROD_02")
         OCP_SERVER="https://api.oscp4-prod-02.viessmann.net:6443 --insecure-skip-tls-verify=true" 
         # For production, always use proper TLS verification.
         # --certificate-authority=<path/to/prod_ca.crt> if you have a custom CA

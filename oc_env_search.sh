@@ -3,24 +3,8 @@
 # Script to lookup openshift env vars that fit search term
 # Usage: `oc_env_search.sh` or `oc_env_search.sh searchTerm`
 
-# --- Helper Function for Dependency Checks ---
-check_dependencies() {
-    local -a commands_to_check=("$@") # Capture all arguments as an array
-    local missing_commands=""
-
-    for cmd in "${commands_to_check[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
-            missing_commands+="$cmd " # Append missing command to the list
-        fi
-    done
-
-    if [ -n "$missing_commands" ]; then
-        echo "Error: The following required commands are not found in your PATH:"
-        echo "       $missing_commands"
-        echo "Please ensure they are installed and accessible."
-        exit 1
-    fi
-}
+# Source the utility functions
+source "$(dirname "$0")/../lib/bash/utils.sh"
 
 # --- Main Script Logic ---
 check_dependencies "oc" "gum" "yq"
@@ -53,6 +37,7 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
 
             # find all deployments and deploymentConfigs
             DEPLOYMENTS=$(oc get deployments -o name -n $SELECTED_PROJECT; oc get deploymentconfigs -o name -n $SELECTED_PROJECT 2>/dev/null)
+            #log_info $DEPLOYMENTS
             while IFS= read -r SELECTED_DEPLOYMENT; do
                 echo "Processing deployment: $SELECTED_DEPLOYMENT"
                 
@@ -63,28 +48,41 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
                 # It will output in the format: NAME=VALUE or NAME=VALUE_FROM_CONFIGMAP_KEY_REF_environment/VI_PODOMAIN
                 # And similarly for secretKeyRef
                 RESOURCE_YAML=$(oc get $SELECTED_DEPLOYMENT -n $SELECTED_PROJECT -o yaml 2>/dev/null)
+                #log_info $RESOURCE_YAML
                 ENV_VARS=$(echo "$RESOURCE_YAML" | yq -r '
-                    .spec.template.spec.containers[].env[] | select(.) |
+                    .spec.template.spec.containers[]?.env[]? | select(.) |
                     .name + "=" + (
                         if .value then .value
                         elif .valueFrom and .valueFrom.configMapKeyRef then
                         "VALUE_FROM_CONFIGMAP_KEY_REF_" + .valueFrom.configMapKeyRef.name + "/" + .valueFrom.configMapKeyRef.key
                         elif .valueFrom and .valueFrom.secretKeyRef then
                         "VALUE_FROM_SECRET_KEY_REF_" + .valueFrom.secretKeyRef.name + "/" + .valueFrom.secretKeyRef.key
-                        # Add more valueFrom types here if needed (e.g., fieldRef, resourceFieldRef)
+                        elif .valueFrom and .valueFrom.fieldRef then
+                        "VALUE_FROM_FIELD_REF_" + .valueFrom.fieldRef.fieldPath
+                        elif .valueFrom and .valueFrom.resourceFieldRef then
+                        "VALUE_FROM_RESOURCE_FIELD_REF_" + .valueFrom.resourceFieldRef.containerName + "/" + .valueFrom.resourceFieldRef.resource
                         else
-                        "UNKNOWN_VALUE_SOURCE"
+                        "UNKNOWN_VALUE_SOURCE_FOR_ENV_" + .name
                         end
                     )
                     ' 2>/dev/null)
                 
+                #log_info $ENV_VARS
                 if [ -n "$ENV_VARS" ]; then
+
+                    # Temporarily disable -e for grep, as grep returns 1 when no match is found
+                    set +e
                     # Filter environment variables based on the search term (case-insensitive)
                     MATCHING_ENV_VARS=$(echo "$ENV_VARS" | grep -i "$SEARCH_TERM")
+                    set -e # Re-enable -e
 
                     if [ -n "$MATCHING_ENV_VARS" ]; then
                         #echo "Matching env vars $MATCHING_ENV_VARS in deployment $SELECTED_DEPLOYMENT"
-                        gum style --padding "1 5" --border double --border-foreground 212 "$MATCHING_ENV_VARS"
+                        #gum style --padding "1 5" --border double --border-foreground 212 "$MATCHING_ENV_VARS"
+                        # THE FIX IS HERE: Redirect gum style's stdin from /dev/null
+                        gum style --padding "1 5" --border double --border-foreground 212 "$MATCHING_ENV_VARS" < /dev/null
+                    #else
+                    #    log_info "No matches for '$SEARCH_TERM' in $SELECTED_DEPLOYMENT."
                     fi
                 fi
             done <<< "$DEPLOYMENTS"
@@ -99,7 +97,10 @@ if [ -n "$SELECTED_PROJECTS" ]; then # Check if anything was selected
             while IFS= read -r SELECTED_CM; do
                 echo "Processing config map: $SELECTED_CM"
                 RESOURCE_YAML=$(oc get $SELECTED_CM -n $SELECTED_PROJECT -o yaml 2>/dev/null)
+                # Temporarily disable -e for grep, as grep returns 1 when no match is found
+                set +e
                 MATCHING_CM=$(echo "$RESOURCE_YAML" | yq '.data' | grep -i "$SEARCH_TERM") # restrict to data block; ommit last_applied annotation
+                set -e # Re-enable -e
                 TRUNCATED_MATCHING_CM=$(echo "$MATCHING_CM" | cut -c 1-"$CM_CONTENT_WIDTH" ) # Limit to terminal width
                 if [ -n "$MATCHING_CM" ]; then
                     gum style --padding "1 5" --border double --border-foreground 212 "$TRUNCATED_MATCHING_CM"

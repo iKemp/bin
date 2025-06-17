@@ -1,26 +1,9 @@
 #!/usr/bin/env bash
 
-# --- Dependencies Check ---
-check_dependencies() {
-    local -a commands_to_check=("$@")
-    local missing_commands=""
-
-    for cmd in "${commands_to_check[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
-            missing_commands+="$cmd "
-        fi
-    done
-
-    if [ -n "$missing_commands" ]; then
-        echo "Error: The following required commands are not found in your PATH:"
-        echo "       $missing_commands"
-        echo "Please ensure they are installed and accessible."
-        exit 1
-    fi
-}
+# Source the utility functions
+source "$(dirname "$0")/../lib/bash/utils.sh"
 
 check_dependencies "jq" "gum"
-
 
 # --- Function to handle input parsing ---
 # This function determines if the input is a file path or a direct token.
