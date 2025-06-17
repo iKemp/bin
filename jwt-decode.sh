@@ -59,9 +59,10 @@ function jwt_decode(){
 # Pass the first argument of the script to the function, if it exists
 TOKEN_INPUT=$(get_token_content "$1")
 
-# Ensure the token has at least two dots (for header.payload.signature structure)
-if ! echo "$TOKEN_INPUT" | grep -q '\.*\.'; then
-    echo "Error: Invalid JWT token format. A JWT token typically has two dots (e.g., header.payload.signature)."
+# Robust check for exactly two dots (JWT structure: header.payload.signature)
+DOT_COUNT=$(echo "$TOKEN_INPUT" | tr -cd '.' | wc -c)
+if [ "$DOT_COUNT" -ne 2 ]; then
+    echo "Error: Invalid JWT token format. A JWT token typically has exactly two dots (e.g., header.payload.signature)." >&2
     exit 1
 fi
 
