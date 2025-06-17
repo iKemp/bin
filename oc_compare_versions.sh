@@ -9,15 +9,25 @@ check_dependencies "oc" "gum"
 # Function to get commit hash from an image stream tag using a specific context
 get_commit_hash() {
   local KUBE_CONTEXT=$1
-  local IMAGE_STREAM_TAG=$2
+  local IMAGE_STREAM_TAG=$2 # e.g., my-app:prod
 
   local DESCRIBE_OUTPUT
+  # Capture all output from oc describe
   if ! DESCRIBE_OUTPUT=$(oc --context="${KUBE_CONTEXT}" describe istag "${IMAGE_STREAM_TAG}" 2>/dev/null); then
-    echo ""
+    echo "" # If istag not found or error, return empty
     return 0
   fi
 
-  echo "$DESCRIBE_OUTPUT" | grep -i 'Image:' | awk '{print $NF}' | rev | cut -d: -f1 | rev || true
+  # Filter for lines containing "OPENSHIFT_BUILD_COMMIT" and extract the value
+  # The output typically looks like '    OPENSHIFT_BUILD_COMMIT=some_hash_value'
+  echo "$DESCRIBE_OUTPUT" | \
+    grep -i 'OPENSHIFT_BUILD_COMMIT=' | \
+    awk -F'=' '{print $2}' | head -n 1 || true
+  # Explanation:
+  # grep -i 'OPENSHIFT_BUILD_COMMIT=': Finds the line with the commit variable.
+  # awk -F'=' '{print $2}': Sets the field separator to '=' and prints the second field (the value).
+  # head -n 1: Ensures only the first occurrence is taken, in case there are multiple.
+  # || true: Prevents pipefail if the grep or awk doesn't find a match.
 }
 
 # --- Main Script ---
@@ -118,6 +128,8 @@ echo "$IMAGE_STREAMS" | while IFS= read -r IS_NAME; do
         # Fetch commit hashes
         SOURCE_COMMIT=$(get_commit_hash "$SOURCE_CONTEXT" "$FULL_IMAGE_STREAM_TAG")
         TARGET_COMMIT=$(get_commit_hash "$TARGET_CONTEXT" "$FULL_IMAGE_STREAM_TAG")
+        echo $SOURCE_COMMIT
+        echo $TARGET_COMMIT
 
         gum style --foreground "240" "  Source Cluster (Context: $SOURCE_CONTEXT): $( [ -n "$SOURCE_COMMIT" ] && echo "$SOURCE_COMMIT" || echo "Not Found" )"
         gum style --foreground "240" "  Target Cluster (Context: $TARGET_CONTEXT): $( [ -n "$TARGET_COMMIT" ] && echo "$TARGET_COMMIT" || echo "Not Found" )"
