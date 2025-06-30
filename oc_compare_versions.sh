@@ -128,14 +128,14 @@ echo "$IMAGE_STREAMS" | while IFS= read -r IS_NAME; do
         # Fetch commit hashes
         SOURCE_COMMIT=$(get_commit_hash "$SOURCE_CONTEXT" "$FULL_IMAGE_STREAM_TAG")
         TARGET_COMMIT=$(get_commit_hash "$TARGET_CONTEXT" "$FULL_IMAGE_STREAM_TAG")
-        echo $SOURCE_COMMIT
-        echo $TARGET_COMMIT
+        #echo $SOURCE_COMMIT
+        #echo $TARGET_COMMIT
 
         gum style --foreground "240" "  Source Cluster (Context: $SOURCE_CONTEXT): $( [ -n "$SOURCE_COMMIT" ] && echo "$SOURCE_COMMIT" || echo "Not Found" )"
         gum style --foreground "240" "  Target Cluster (Context: $TARGET_CONTEXT): $( [ -n "$TARGET_COMMIT" ] && echo "$TARGET_COMMIT" || echo "Not Found" )"
 
         if [[ -z "$SOURCE_COMMIT" && -z "$TARGET_COMMIT" ]]; then
-            gum style --foreground "240" "  Result: Neither cluster has this tag."
+            gum style --foreground "220" "  Result: Neither cluster has this tag." # Yellow
         elif [[ -z "$SOURCE_COMMIT" ]]; then
             gum style --foreground "204" "  Result: Tag found only on Target Cluster." # Red
         elif [[ -z "$TARGET_COMMIT" ]]; then
