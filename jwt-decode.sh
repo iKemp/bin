@@ -47,10 +47,10 @@ get_token_content() {
 
 # --- Function to decode JWT token ---
 # Accepts the JWT token string as an argument
-function jwt_decode(){
+function jwt_decode() {
     local token="$1"
     # Extract the payload part (second segment) and base64 decode, then parse as JSON
-    jq -R 'split(".") | .[1] | @base64d | fromjson' <<< "$token" 2>/dev/null
+    jq -R 'split(".") | .[1] | @base64d | fromjson' <<<"$token" 2>/dev/null
 }
 
 # --- Main Script Logic ---
@@ -79,6 +79,6 @@ fi
 
 # 2) Display the output with gum pager
 echo "--- Decoded JWT Payload ---"
-echo "$DECODED_PAYLOAD" | gum pager
+echo "$DECODED_PAYLOAD" | gum pager --show-line-numbers=false --border=none
 
 echo "--- Decoding Complete ---"
