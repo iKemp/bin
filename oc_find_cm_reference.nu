@@ -51,8 +51,16 @@ def main [
     # 4. Final View
     let view = ($results | select metadata.namespace metadata.name kind config_maps)
 
-    if ($search_term != null) {
-        $view | where config_maps =~ $search_term
+    if ($search_term == "EMPTY") {
+        $view | where config_maps == ""
+    } else if ($search_term != null) {
+        # Check if user started the term with '!' for a NOT search
+        if ($search_term | str starts-with "!") {
+            let clean_term = ($search_term | str replace "!" "")
+            $view | where config_maps !~ $clean_term
+        } else {
+            $view | where config_maps =~ $search_term
+        }
     } else {
         $view
     }
